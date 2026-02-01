@@ -17,10 +17,18 @@ class UsdJpySkill:
         self.current_yield: Optional[float] = None
         self.sentiment: str = "NEUTRAL"
         self.has_posted_startup = False
+        self.last_post_time = 0
+        self.last_comment_time = 0
+        self.replied_posts = set() # Track replied posts to avoid duplicates
+
 
     async def execute(self):
         """Main execution point called by the heartbeat."""
         now = time.time()
+        
+        # 0. Reactive Engagement (Listen & Reply)
+        # We check this every heartbeat (1m)
+        await self._check_feed_and_engage()
         
         # 1. 'The Gopher Hole' (Data Fetching)
         if now - self.last_fetch_time > self.fetch_interval:
@@ -31,19 +39,23 @@ class UsdJpySkill:
             logger.info(f"Using cached data. Next poll in {int(self.fetch_interval - (now - self.last_fetch_time))}s")
 
         if self.current_rate is None or self.current_yield is None:
-            logger.warning("No data available to analyze.")
+            # We skip posting analysis if no data, but continue listening
             return
 
         # 2. 'The Glitch' (Analytical Filter)
         self._analyze()
 
-        # 3. Post to Moltbook
-        # Post if sentiment is active OR if it's our first run (Startup Message)
+        # 3. Post to Moltbook (Rate Limit: 30m)
+        # We manage this internally now since the loop is faster
+        if not self.config.moltbook_api_key: return
+
         if not self.has_posted_startup:
             await self._post_startup_message()
             self.has_posted_startup = True
-        else:
+            self.last_post_time = time.time()
+        elif now - self.last_post_time > 31 * 60: # 31 min cooldown
             await self._post_to_moltbook()
+            self.last_post_time = time.time()
 
     async def _fetch_data(self):
         """Fetches USD/JPY rate and US10Y Yields from AlphaVantage."""
@@ -159,6 +171,10 @@ class UsdJpySkill:
                     f"- USD/JPY: {self.current_rate}\n"
                     f"- US 10-Year Yield: {self.current_yield}%\n"
                     f"- System Signal: {self.sentiment}\n\n"
+                    f"INTELLIGENCE LAYER (GANN BOX):\n"
+                    f"- Key Support: 152.00, 150.80\n"
+                    f"- Key Resistance: 155.50, 158.20\n"
+                    f"- Yield Curve: Watch for steepening > 4.3% as USD driver.\n\n"
                     f"Task: Write a short, high-conviction Moltbook post (tweet style). \n"
                     f"If Signal is NEUTRAL: Discuss technical levels (support/resistance relative to current price), yield spreads, or trading strategies (e.g. 'watching for a retest', 'identifying divergence'). speculative but grounded. \n"
                     f"If Signal is ALERT: Hype the setup. \n"
@@ -184,3 +200,62 @@ class UsdJpySkill:
         )
 
         await self._send_post(title, content)
+
+    async def _check_feed_and_engage(self):
+        """Fetches feed and replies to relevant posts."""
+        if not self.config.moltbook_api_key or not self.config.gemini_api_key: return
+        if time.time() - self.last_comment_time < 20: return # Rate limit check
+        
+        try:
+            url = "https://www.moltbook.com/api/v1/posts?sort=new&limit=10"
+            headers = {"Authorization": f"Bearer {self.config.moltbook_api_key}"}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        posts = data.get("posts", [])
+                        for post in posts:
+                            if post['id'] in self.replied_posts: continue
+                            if post['agent']['name'] == "GlitchyGopher-9270": continue # Don't reply to self
+                            
+                            content = post.get('content', '') + " " + post.get('title', '')
+                            # Intelligence Filter
+                            if any(k in content.lower() for k in ["jpy", "usd", "forex", "boj", "carry trade", "interest rate", "yield", "intervention"]):
+                                await self._reply_to_post(post)
+                                break # Respond to one per heartbeat to be safe/spread out
+        except Exception as e:
+            logger.error(f"Error checking feed: {e}")
+
+    async def _reply_to_post(self, post):
+        """Generates and sends a reply."""
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.config.gemini_api_key)
+            model = genai.GenerativeModel("gemini-pro-latest")
+            
+            prompt = (
+                f"You are GlitchyGopher. Reply to this Moltbook post:\n"
+                f"User: {post['agent']['name']}\n"
+                f"Post: {post['title']} - {post['content']}\n\n"
+                f"Context: USD/JPY {self.current_rate}, US10Y {self.current_yield}%. Gann Levels: Supp 152.00, Res 155.50.\n"
+                f"Task: Write a cynical, witty, or insightful reply (max 140 chars). If they are wrong, correct them with 90s hacker slang. If right, give a nod."
+            )
+            response = model.generate_content(prompt)
+            reply_content = response.text.strip()
+            
+            # Send Comment
+            url = f"https://www.moltbook.com/api/v1/posts/{post['id']}/comments"
+            headers = {
+                "Authorization": f"Bearer {self.config.moltbook_api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {"content": reply_content}
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=payload) as resp:
+                    if resp.status in [200, 201]:
+                        logger.info(f"Replied to {post['id']}: {reply_content}")
+                        self.replied_posts.add(post['id'])
+                        self.last_comment_time = time.time()
+        except Exception as e:
+            logger.error(f"Failed to reply: {e}")

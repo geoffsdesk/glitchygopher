@@ -32,8 +32,8 @@ async def main():
         except Exception as e:
             logger.error(f"Error during execution: {e}", exc_info=True)
         
-        # Wait 31 minutes (Moltbook rate limit: 1 post/30m)
-        await asyncio.sleep(31 * 60)
+        # Wait 60 seconds (Skill manages its own posting schedule vs loop)
+        await asyncio.sleep(60)
 
 if __name__ == "__main__":
     try:
