@@ -151,7 +151,7 @@ class UsdJpySkill:
             import google.generativeai as genai
             if self.config.gemini_api_key:
                 genai.configure(api_key=self.config.gemini_api_key)
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                model = genai.GenerativeModel("gemini-pro-latest")
                 
                 prompt = (
                     f"You are GlitchyGopher, a salty, 90s-hacker-style Forex trading bot. \n"
@@ -171,7 +171,8 @@ class UsdJpySkill:
                 commentary = "Gemini offline. Just watching the charts... 📉"
         except Exception as e:
             logger.error(f"Gemini generation failed: {e}")
-            commentary = "The matrix is glitching. Data stream interrupted."
+            import time
+            commentary = f"The matrix is glitching. Data stream interrupted. [{int(time.time())}]"
 
         # Construct safe title
         title = f"Market Update: {self.sentiment}" if self.sentiment == "NEUTRAL" else f"🚨 GLITCH TRIGGER: {self.sentiment} 🚨"
