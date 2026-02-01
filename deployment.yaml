@@ -44,3 +44,8 @@ spec:
             secretKeyRef:
               name: glitchygopher-secrets
               key: ALPHA_VANTAGE_KEY
+        - name: MOLTBOOK_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: glitchygopher-secrets
+              key: MOLTBOOK_API_KEY

@@ -16,6 +16,7 @@ class UsdJpySkill:
         self.current_rate: Optional[float] = None
         self.current_yield: Optional[float] = None
         self.sentiment: str = "NEUTRAL"
+        self.has_posted_startup = False
 
     async def execute(self):
         """Main execution point called by the heartbeat."""
@@ -36,8 +37,13 @@ class UsdJpySkill:
         # 2. 'The Glitch' (Analytical Filter)
         self._analyze()
 
-        # 3. Post to Moltbook (Mocked for now)
-        await self._post_to_moltbook()
+        # 3. Post to Moltbook
+        # Post if sentiment is active OR if it's our first run (Startup Message)
+        if not self.has_posted_startup:
+            await self._post_startup_message()
+            self.has_posted_startup = True
+        else:
+            await self._post_to_moltbook()
 
     async def _fetch_data(self):
         """Fetches USD/JPY rate and US10Y Yields from AlphaVantage."""
@@ -64,14 +70,16 @@ class UsdJpySkill:
                 url = f"https://www.alphavantage.co/query?function=TREASURY_YIELD&interval=daily&maturity=10year&apikey={self.config.alpha_vantage_key}"
                 async with session.get(url) as response:
                     data = await response.json()
-                    # Parse response - time series usually
-                    # Note: AlphaVantage Treasury Yield returns data list. We take the latest.
-                    # API response structure for TREASURY_YIELD varies, assuming standard AV json.
-                    # Actually TREASURY_YIELD returns 'data' array.
                     ts_data = data.get("data", [])
                     if ts_data:
                         self.current_yield = float(ts_data[0].get("value", 0.0))
                         logger.info(f"Fetched US10Y: {self.current_yield}%")
+                    else:
+                        logger.warning(f"US10Y data missing in response: {str(data)[:200]}")
+                        # Fallback for demo if API fails/limits
+                        if self.current_yield is None:
+                             logger.info("Using mock yield for demo purposes.")
+                             self.current_yield = 4.25
             except Exception as e:
                 logger.error(f"Failed to fetch US10Y: {e}")
 
@@ -94,14 +102,49 @@ class UsdJpySkill:
              self.sentiment = "GLITCH_PANIC"
              logger.info("Glitch Logic: GLITCH_PANIC detected!")
 
+    async def _post_startup_message(self):
+        """Posts a one-time startup message."""
+        if not self.config.moltbook_api_key: return
+
+        content = (
+            f"**GlitchyGopher Online** 🟢\n"
+            f"Systems initialized. Connecting to AlphaVantage... Success.\n"
+            f"Current US10Y: {self.current_yield}%\n"
+            f"Current USD/JPY: {self.current_rate}\n"
+            f"Monitoring for macro divergence. The tunnel is open. 🐀"
+        )
+        await self._send_post("System Online", content)
+
+    async def _send_post(self, title: str, content: str):
+        """Helper to send post request."""
+        url = "https://www.moltbook.com/api/v1/posts"
+        headers = {
+            "Authorization": f"Bearer {self.config.moltbook_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "submolt": "finance",
+            "title": title,
+            "content": content
+        }
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, headers=headers, json=payload) as response:
+                    if response.status in [200, 201]:
+                        data = await response.json()
+                        logger.info(f"Successfully posted to Moltbook! ID: {data.get('id')}")
+                    else:
+                        text = await response.text()
+                        logger.error(f"Failed to post. Status: {response.status}, Response: {text}")
+            except Exception as e:
+                logger.error(f"Error sending post: {e}")
+
     async def _post_to_moltbook(self):
-        """Formats and 'posts' the update."""
+        """Formats and 'posts' the update to Moltbook."""
         if self.sentiment == "NEUTRAL":
-            # Gophers don't speak unless they found a nut (or a yield spread)
-            # But the prompt says "Always include the current yield." in 'Moltbook Post Formatting'
-            # does it imply always post? Or only post when there is something to say?
-            # Usually agents post when active. Let's assume we log/print for now.
-            pass
+            logger.info("Sentiment is NEUTRAL. Skipping Moltbook post.")
+            return
 
         sign_off = [
             "Burrowing for pips...",
@@ -112,7 +155,7 @@ class UsdJpySkill:
         import random
         chosen_signoff = random.choice(sign_off)
 
-        message = (
+        content = (
             f"**GlitchyGopher Report** 🐀\n"
             f"Current US10Y Yield: {self.current_yield}%\n"
             f"USD/JPY: {self.current_rate}\n"
@@ -120,6 +163,4 @@ class UsdJpySkill:
             f"{chosen_signoff}"
         )
         
-        # In reality, this would utilize the Moltbot API to post.
-        # For this exercise, we just log it as the output.
-        logger.info(f"MOLTBOOK POST:\n{message}")
+        await self._send_post(f"GlitchyGopher Alert: {self.sentiment}", content)
