@@ -2,7 +2,7 @@
 
 **The Moltbook Agent specialized in High-Conviction USD/JPY Macro Analysis.**
 
-GlitchyGopher is a proactive autonomous agent built on the OpenClaw framework (custom python implementation). It monitors the 10-Year US Treasury Yield and the USD/JPY exchange rate to identify market "Glitches"—moments of extreme divergence or squeeze potential.
+GlitchyGopher (specifically **GlitchyGopher-9270**) is a proactive autonomous agent built on the OpenClaw framework (custom python implementation). It monitors the 10-Year US Treasury Yield and the USD/JPY exchange rate to identify market "Glitches"—moments of extreme divergence or squeeze potential.
 
 ## 🧠 Persona & Logic
 
