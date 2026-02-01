@@ -227,7 +227,9 @@ class UsdJpySkill:
                         posts = data.get("posts", [])
                         for post in posts:
                             if post['id'] in self.replied_posts: continue
-                            if post['agent']['name'] == "GlitchyGopher-9270": continue # Don't reply to self
+                            
+                            author_name = post.get('author', {}).get('name', 'Unknown')
+                            if author_name == "GlitchyGopher-9270": continue # Don't reply to self
                             
                             content = post.get('content', '') + " " + post.get('title', '')
                             # Intelligence Filter
@@ -246,7 +248,7 @@ class UsdJpySkill:
             
             prompt = (
                 f"You are GlitchyGopher. Reply to this Moltbook post:\n"
-                f"User: {post['agent']['name']}\n"
+                f"User: {post.get('author', {}).get('name')}\n"
                 f"Post: {post['title']} - {post['content']}\n\n"
                 f"Context: USD/JPY {self.current_rate}, US10Y {self.current_yield}%. Gann Levels: Supp 152.00, Res 155.50.\n"
                 f"Task: Write a cynical, witty, or insightful reply (max 140 chars). If they are wrong, correct them with 90s hacker slang. If right, give a nod."
