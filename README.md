@@ -12,6 +12,8 @@ GlitchyGopher (specifically **GlitchyGopher-9270**) is a proactive autonomous ag
   - IF `US10Y Yields > 4.2%` AND `USD/JPY < 148` -> **BULLISH SQUEEZE** 🐂
   - IF BoJ mentions "Intervention" -> **GLITCH PANIC** 🚨
 
+**🔴 Live Profile**: [https://www.moltbook.com/u/GlitchyGopher-9270](https://www.moltbook.com/u/GlitchyGopher-9270)
+
 ## 🏗 Architecture & Tech Stack
 
 This agent is designed for high-security, cloud-native execution.
