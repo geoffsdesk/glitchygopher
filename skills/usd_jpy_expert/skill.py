@@ -123,7 +123,7 @@ class UsdJpySkill:
             "Content-Type": "application/json"
         }
         payload = {
-            "submolt": "finance",
+            "submolt": "general",
             "title": title,
             "content": content
         }
