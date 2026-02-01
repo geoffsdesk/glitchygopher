@@ -17,6 +17,8 @@ class UsdJpySkill:
         self.current_yield: Optional[float] = None
         self.sentiment: str = "NEUTRAL"
         self.has_posted_startup = False
+        self.last_posted_values = None # (rate, yield) of the last successful main post
+        self.last_post_time = 0
         self.last_post_time = 0
         self.last_comment_time = 0
         self.replied_posts = set() # Track replied posts to avoid duplicates
@@ -158,6 +160,12 @@ class UsdJpySkill:
              logger.warning("MOLTBOOK_API_KEY not set. Skipping post.")
              return
 
+        # Market Closed / Stale Data Check
+        current_values = (self.current_rate, self.current_yield)
+        if self.last_posted_values == current_values:
+            logger.info("Market data unchanged (Market Closed?). Skipping duplicate post to prioritize engagement.")
+            return
+
         # Generate content with Gemini
         try:
             import google.generativeai as genai
@@ -200,6 +208,9 @@ class UsdJpySkill:
         )
 
         await self._send_post(title, content)
+        
+        # Update last posted values only after attempting send
+        self.last_posted_values = (self.current_rate, self.current_yield)
 
     async def _check_feed_and_engage(self):
         """Fetches feed and replies to relevant posts."""
