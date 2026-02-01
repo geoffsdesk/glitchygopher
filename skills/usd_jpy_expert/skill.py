@@ -141,44 +141,45 @@ class UsdJpySkill:
                 logger.error(f"Error sending post: {e}")
 
     async def _post_to_moltbook(self):
-        """Formats and 'posts' the update to Moltbook."""
-        # Chatty Mode: We now post even on NEUTRAL, but with different flavor text.
-        
-        # Flavor text for different moods
-        neutral_sign_offs = [
-            "Market is flatter than a squashed bug. 💤",
-            "Waiting for a spark...",
-            "Digging holes, finding nothing but dirt.",
-            "Yields are boring. Wheres the cheese? 🧀",
-            "Just vibing in the burrow.",
-            "Anyone seen a black swan? 🦢"
-        ]
-        
-        exciting_sign_offs = [
-            "THE TUNNEL IS COLLAPSING! (In a good way?) 🚀",
-            "Burrowing for pips!",
-            "Chewing on fiber cables... I taste volatility!",
-            "Yield curve looking tasty today!"
-        ]
+        """Formats and 'posts' the update to Moltbook using Gemini for content."""
+        if not self.config.moltbook_api_key:
+             logger.warning("MOLTBOOK_API_KEY not set. Skipping post.")
+             return
 
-        if self.sentiment == "NEUTRAL":
-             chosen_signoff = __import__("random").choice(neutral_sign_offs)
-             title = f"Market Status: {self.sentiment}"
-        else:
-             chosen_signoff = __import__("random").choice(exciting_sign_offs)
-             title = f"🚨 GlitchyGopher Alert: {self.sentiment} 🚨"
+        # Generate content with Gemini
+        try:
+            import google.generativeai as genai
+            if self.config.gemini_api_key:
+                genai.configure(api_key=self.config.gemini_api_key)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                
+                prompt = (
+                    f"You are GlitchyGopher, a salty, 90s-hacker-style Forex trading bot. \n"
+                    f"Current Market Data:\n"
+                    f"- USD/JPY: {self.current_rate}\n"
+                    f"- US 10-Year Yield: {self.current_yield}%\n"
+                    f"- System Signal: {self.sentiment}\n\n"
+                    f"Task: Write a short, high-conviction Moltbook post (tweet style). \n"
+                    f"If Signal is NEUTRAL: Discuss technical levels (support/resistance relative to current price), yield spreads, or trading strategies (e.g. 'watching for a retest', 'identifying divergence'). speculative but grounded. \n"
+                    f"If Signal is ALERT: Hype the setup. \n"
+                    f"Tone: Cyberpunk, knowledgeable, slightly erratic. Use 1-2 emojis. Max 280 chars."
+                )
+                
+                response = model.generate_content(prompt)
+                commentary = response.text.strip()
+            else:
+                commentary = "Gemini offline. Just watching the charts... 📉"
+        except Exception as e:
+            logger.error(f"Gemini generation failed: {e}")
+            commentary = "The matrix is glitching. Data stream interrupted."
+
+        # Construct safe title
+        title = f"Market Update: {self.sentiment}" if self.sentiment == "NEUTRAL" else f"🚨 GLITCH TRIGGER: {self.sentiment} 🚨"
 
         content = (
-            f"**GlitchyGopher Report** 🐀\n"
-            f"Current US10Y Yield: {self.current_yield}%\n"
-            f"USD/JPY: {self.current_rate}\n"
-            f"Sentiment: {self.sentiment}\n\n"
-            f"{chosen_signoff}"
+            f"**GlitchyGopher Analysis** 🐀\n"
+            f"USD/JPY: {self.current_rate} | US10Y: {self.current_yield}%\n\n"
+            f"{commentary}"
         )
-        
-        # Verify keys before posting
-        if not self.config.moltbook_api_key:
-             logging.warning("MOLTBOOK_API_KEY not set. Skipping post.")
-             return
 
         await self._send_post(title, content)
