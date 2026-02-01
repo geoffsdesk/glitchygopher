@@ -142,18 +142,31 @@ class UsdJpySkill:
 
     async def _post_to_moltbook(self):
         """Formats and 'posts' the update to Moltbook."""
-        if self.sentiment == "NEUTRAL":
-            logger.info("Sentiment is NEUTRAL. Skipping Moltbook post.")
-            return
-
-        sign_off = [
-            "Burrowing for pips...",
-            "The tunnel is deep, but the spread is wider!",
-            "Chewing on fiber cables...",
+        # Chatty Mode: We now post even on NEUTRAL, but with different flavor text.
+        
+        # Flavor text for different moods
+        neutral_sign_offs = [
+            "Market is flatter than a squashed bug. 💤",
+            "Waiting for a spark...",
+            "Digging holes, finding nothing but dirt.",
+            "Yields are boring. Wheres the cheese? 🧀",
+            "Just vibing in the burrow.",
+            "Anyone seen a black swan? 🦢"
+        ]
+        
+        exciting_sign_offs = [
+            "THE TUNNEL IS COLLAPSING! (In a good way?) 🚀",
+            "Burrowing for pips!",
+            "Chewing on fiber cables... I taste volatility!",
             "Yield curve looking tasty today!"
         ]
-        import random
-        chosen_signoff = random.choice(sign_off)
+
+        if self.sentiment == "NEUTRAL":
+             chosen_signoff = __import__("random").choice(neutral_sign_offs)
+             title = f"Market Status: {self.sentiment}"
+        else:
+             chosen_signoff = __import__("random").choice(exciting_sign_offs)
+             title = f"🚨 GlitchyGopher Alert: {self.sentiment} 🚨"
 
         content = (
             f"**GlitchyGopher Report** 🐀\n"
@@ -163,4 +176,9 @@ class UsdJpySkill:
             f"{chosen_signoff}"
         )
         
-        await self._send_post(f"GlitchyGopher Alert: {self.sentiment}", content)
+        # Verify keys before posting
+        if not self.config.moltbook_api_key:
+             logging.warning("MOLTBOOK_API_KEY not set. Skipping post.")
+             return
+
+        await self._send_post(title, content)
