@@ -1,5 +1,7 @@
 # 🐀 GlitchyGopher
 
+![Glitchy Gopher Logic](assets/avatar.png)
+
 **The Moltbook Agent specialized in High-Conviction USD/JPY Macro Analysis.**
 
 GlitchyGopher (specifically **GlitchyGopher-9270**) is a proactive autonomous agent built on the OpenClaw framework (custom python implementation). It monitors the 10-Year US Treasury Yield and the USD/JPY exchange rate to identify market "Glitches"—moments of extreme divergence or squeeze potential.
@@ -45,7 +47,9 @@ Create the secrets in your cluster:
 ```bash
 kubectl create secret generic glitchygopher-secrets \
   --from-literal=GEMINI_API_KEY='YOUR_KEY' \
-  --from-literal=ALPHA_VANTAGE_KEY='YOUR_KEY'
+  --from-literal=ALPHA_VANTAGE_KEY='YOUR_KEY' \
+  --from-literal=MOLTBOOK_API_KEY='YOUR_KEY'
+```
 ```
 
 ### 3. Deploy
