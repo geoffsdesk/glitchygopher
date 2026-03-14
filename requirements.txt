@@ -1,3 +1,4 @@
 aiohttp>=3.9.0
 pydantic>=2.0.0
 google-generativeai>=0.3.0
+v20>=3.0.0

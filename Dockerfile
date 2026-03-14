@@ -23,5 +23,8 @@ RUN chown -R gopher:gopher /app
 # Switch to non-root user
 USER 1000
 
+# Expose health check port
+EXPOSE 8080
+
 # Execute the application
 CMD ["python", "-m", "core.main"]
